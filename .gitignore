@@ -1,0 +1,13 @@
+.env
+exports/*.csv
+__pycache__/
+*.pyc
+*.accdb
+*.mdb
+*.laccdb
+.venv/
+tests_scratch/
+learning/*.json
+data/*.json
+data/*.tmp
+data/*.xlsx
