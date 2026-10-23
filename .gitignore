@@ -11,3 +11,5 @@ learning/*.json
 data/*.json
 data/*.tmp
 data/*.xlsx
+*.xlsx
+*.xls
