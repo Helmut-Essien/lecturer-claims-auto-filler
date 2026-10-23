@@ -9,7 +9,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from roster import norm_name
+from roster import NOT_FOUND, norm_name
 
 DIR = Path(__file__).resolve().parent / "learning"
 CORR = DIR / "corrections.json"
@@ -49,7 +49,7 @@ def record(df, batch_date) -> int:
         diffs = {}
         for final, raw in FIELDS:
             a, b = _txt(r.get(raw)), _txt(r.get(final))
-            if a and a != b:
+            if a and a != b and b != NOT_FOUND:  # never learn "NOT FOUND" as a fix
                 diffs[final] = {"read": a, "final": b}
         # Only learn a name alias if the clerk set the name, or the roster match was unflagged.
         clerk_set = _txt(r.get("lecturer_name")) not in (_txt(r.get("raw_name")), _txt(r.get("name_auto")))
@@ -79,7 +79,7 @@ def aliases() -> dict:
     out = {}
     for c in corrections():
         d = c["diffs"].get("lecturer_name")
-        if d and norm_name(d["read"]):
+        if d and norm_name(d["read"]) and d["final"] != NOT_FOUND:
             out[norm_name(d["read"])] = d["final"]
     return out
 
@@ -88,7 +88,7 @@ def course_fixes() -> dict:
     out = {}
     for c in corrections():
         d = c["diffs"].get("course_code")
-        if d:
+        if d and d["final"] != NOT_FOUND:
             out[d["read"].upper()] = d["final"]
     return out
 

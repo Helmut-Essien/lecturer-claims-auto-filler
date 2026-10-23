@@ -34,6 +34,20 @@ the app for next time.
   - **Course codes:** normalised (`mps414` → `MPS 414`) and matched to the course list.
     `COURSE_FLOOR = 0.5`: below this, the code is marked "not in list". Suffixes such as
     `EVE` and two-code cells are handled.
+- **`NOT FOUND` default:** when a list is loaded and a name or code doesn't match anything
+  in it, the cell is set to `NOT FOUND` (constant `NOT_FOUND` in `roster.py`).
+  - **Names:** this happens below `NAME_FLOOR`, under the `BIO_CONFLICT_FLOOR` rule, or
+    when only the bio ID matches and the name doesn't.
+  - **Codes:** this happens below `COURSE_FLOOR`.
+  - **What's kept:** the raw text stays in *Written as* / *Course written as*, the closest
+    candidate is offered as the runner-up (↔ alt), and the row is flagged
+    `not in roster` / `not in course list`.
+  - **Clerk:** can type a value, pick one (the dropdowns also offer `NOT FOUND`), or add the
+    lecturer via ➕, which replaces `NOT FOUND`.
+  - **Saving:** `NOT FOUND` rows can be saved. The Review step shows a NOT FOUND count and
+    the Save step shows a warning.
+  - **Learning:** `NOT FOUND` is never learned as an alias or fix.
+  - With no list loaded, the raw value is used as before.
 - **Learning memory:** on save, the clerk's corrections become name aliases, course
   fixes and handwriting hints sent to the model next time. Lecturers added during review
   are added to the list. The sidebar shows statistics and has a reset (needs a confirm tick).

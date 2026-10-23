@@ -11,6 +11,7 @@ TITLES = {"dr", "prof", "professor", "mr", "mrs", "ms", "miss", "esq", "rev", "s
 NAME_FLOOR = 0.6  # below this a written name is "not in roster" (raw text kept)
 BIO_CONFLICT_FLOOR = 0.85  # if the written bio ID is someone else, the name must score this
 SURE, TIE = 0.75, 0.05  # flag matches below SURE or within TIE of the runner-up
+NOT_FOUND = "NOT FOUND"  # saved name/code when nothing in the loaded list matches
 
 
 def _key(c) -> str:
@@ -155,7 +156,8 @@ def match_one(name, bio, roster, aliases=None, guess=None):
     elif top_s >= NAME_FLOOR:
         res, notes = pick(top, "name", top_s), []
     elif hit:
-        return {**pick(hit[0], "bio", 0.5), "alt": runner(hit[0]), "note": "roster: matched by bio ID only - check"}
+        return {**none, "score": round(float(ranked[hit[0]]), 2), "alt": roster.loc[hit[0], "name"],
+                "note": f"not in roster (bio ID belongs to {roster.loc[hit[0], 'name']}, but the name doesn't match)"}
     else:
         return {**none, "score": round(top_s, 2), "alt": roster.loc[top, "name"], "note": "not in roster"}
     i = roster.index[roster.name == res["name"]][0]
@@ -194,13 +196,19 @@ def apply_roster(df: pd.DataFrame, roster, aliases=None) -> pd.DataFrame:
     for i, row in df.iterrows():
         cur, raw = _txt(row.lecturer_name), _txt(row.get("raw_name"))
         auto = bool(raw) and cur in (raw, _txt(row.get("name_auto")))
-        if not auto and cur in names:  # clerk chose a roster name
+        if cur == NOT_FOUND and not auto:  # clerk chose NOT FOUND deliberately
+            m = match_one(raw, row.get("bio_id_hint"), roster, None, None)
+            m = {**m, "name": "", "method": "none", "note": "not in roster (set by clerk)",
+                 "alt": m["name"] or m["alt"]}
+        elif not auto and cur in names:  # clerk chose a roster name
             j = roster.index[roster.name == cur][0]
             m = {"name": cur, "bio": roster.loc[j, "bio_id"], "method": "clerk", "score": 1.0, "alt": "", "note": ""}
         else:
             m = match_one(raw if auto else cur, row.get("bio_id_hint"), roster, aliases, row.get("roster_guess"))
         if auto and m["name"]:
             df.loc[i, ["lecturer_name", "name_auto"]] = [m["name"], m["name"]]
+        elif auto and roster is not None and len(roster):
+            df.loc[i, ["lecturer_name", "name_auto"]] = [NOT_FOUND, NOT_FOUND]
         elif not auto and m["name"] and m["method"] != "clerk" and not m["note"]:
             m["note"] = f"roster: typed name differs, suggestion {m['name']}"
         df.loc[i, ["matched_name", "matched_bio_id", "match_method", "alt_name"]] = [m["name"], m["bio"], m["method"], m["alt"]]

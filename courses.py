@@ -71,7 +71,7 @@ def match_one(raw, courses, aliases=None):
         best = max(best or cand, cand)
     score, code, alt, alt_s = best
     if score < COURSE_FLOOR:
-        return {**none, "score": round(score, 2), "alt": code, "note": "course not in list"}
+        return {**none, "score": round(score, 2), "alt": code, "note": "course: not in course list"}
     notes = []
     if score < SURE:
         notes.append("low match")
@@ -96,12 +96,17 @@ def apply_courses(df: pd.DataFrame, courses, aliases=None) -> pd.DataFrame:
     for i, row in df.iterrows():
         cur, raw = rs._txt(row.course_code), rs._txt(row.get("raw_course"))
         auto = bool(raw) and cur in (raw, rs._txt(row.get("course_auto")))
-        if not auto and norm_code(cur) in codes:
+        if cur == rs.NOT_FOUND and not auto:
+            m = {**match_one(raw, courses, None), "code": "", "method": "none",
+                 "note": "course not in list (set by clerk)"}
+        elif not auto and norm_code(cur) in codes:
             m = {"code": norm_code(cur), "method": "clerk", "score": 1.0, "alt": "", "note": ""}
         else:
             m = match_one(raw if auto else cur, courses, aliases)
         if auto and m["code"]:
             df.loc[i, ["course_code", "course_auto"]] = [m["code"], m["code"]]
+        elif auto and courses is not None and len(courses):
+            df.loc[i, ["course_code", "course_auto"]] = [rs.NOT_FOUND, rs.NOT_FOUND]
         df.loc[i, ["alt_course", "course_method"]] = [m["alt"], m["method"]]
         df.loc[i, "course_score"] = m["score"]
         if m["note"]:

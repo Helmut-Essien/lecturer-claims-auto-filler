@@ -275,11 +275,13 @@ if ss.df is not None:
     df, bd = ss.df, ss.batch_date
     with st.container(border=True):
         st.subheader(f"③ Review — 🔒 {bd:%A %d %B %Y}")
-        m = st.columns(5)
+        m = st.columns(6)
         m[0].metric("Entries", len(df))
         m[1].metric("Images", df.source_file[df.source_file != "manual"].nunique())
         m[2].metric("Hours", f"{df.duration_minutes.fillna(0).sum() / 60:.1f}")
         m[3].metric("Flagged", int(df.flag.sum()))
+        nf = int(((df.lecturer_name == rs.NOT_FOUND) | (df.course_code == rs.NOT_FOUND)).sum())
+        m[5].metric("NOT FOUND", nf, help="Rows whose lecturer or course is not in the saved lists")
         m[4].metric("Matched to roster", f"{(df.match_method != 'none').mean():.0%}" if full is not None else "—")
         if ss.mismatches:
             st.error("🚨 **DATE MISMATCH** — the handwritten date differs from the batch date:\n\n"
@@ -303,11 +305,11 @@ if ss.df is not None:
             column_config={
                 "flag": cc.CheckboxColumn("⚠️", width="small"),
                 "lecturer_name": cc.TextColumn("Lecturer", width="medium", required=True),
-                "roster_pick": cc.SelectboxColumn("pick lecturer", options=sorted(full.name) if full is not None else []),
+                "roster_pick": cc.SelectboxColumn("pick lecturer", options=[rs.NOT_FOUND] + sorted(full.name) if full is not None else []),
                 "use_alt": cc.CheckboxColumn("↔ alt", help="Switch to the runner-up roster name"),
                 "alt_name": cc.TextColumn("Runner-up"),
                 "course_code": cc.TextColumn("Course"),
-                "course_pick": cc.SelectboxColumn("pick course", options=sorted(ss.courses.code) if ss.courses is not None else []),
+                "course_pick": cc.SelectboxColumn("pick course", options=[rs.NOT_FOUND] + sorted(ss.courses.code) if ss.courses is not None else []),
                 "use_alt_course": cc.CheckboxColumn("↔ alt", help="Switch to the runner-up course"),
                 "alt_course": cc.TextColumn("Course runner-up"),
                 "raw_course": cc.TextColumn("Course written as"),
@@ -323,7 +325,7 @@ if ss.df is not None:
                 "check": cc.TextColumn("Check"), "notes": cc.TextColumn("AI notes"),
                 "source_file": cc.TextColumn("Page"), "bio_id_hint": cc.TextColumn("Bio (read)"),
             })
-        missing = sorted(df.lecturer_name[df.match_method == "none"].unique()) if full is not None else []
+        missing = sorted({r or n for r, n in zip(df.raw_name[df.match_method == "none"], df.lecturer_name[df.match_method == "none"])} - {"", rs.NOT_FOUND}) if full is not None else []
         if missing:
             with st.expander(f"➕ {len(missing)} lecturer(s) not in roster — add to local supplement"):
                 with st.form("add_extra", clear_on_submit=True):
@@ -350,6 +352,11 @@ if ss.df is not None:
             st.error(f"{len(bad)} row(s) have invalid times — fix them before saving.")
         if int(df.flag.sum()):
             st.warning(f"⚠️ {int(df.flag.sum())} rows are flagged. Saving is allowed, but please check them.")
+        nf_n = int((df.lecturer_name == rs.NOT_FOUND).sum())
+        nf_c = int((df.course_code == rs.NOT_FOUND).sum())
+        if nf_n or nf_c:
+            st.warning(f"{nf_n} row(s) will be saved with lecturer **NOT FOUND** and {nf_c} with course "
+                       "**NOT FOUND**. Pick or type the right value, or add the lecturer via ➕, if you can.")
         c1, c2, c3 = st.columns(3)
         if c1.button("✅ Approve & Save to Access", type="primary",
                      disabled=bool(ss.saved) or not (confirmed and len(df) and not len(bad))):
